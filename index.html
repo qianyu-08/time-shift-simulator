@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Shift Simulator</title>
+  <style>
+    :root{
+      --bg:#070b18;
+      --panel:rgba(13, 20, 40, .78);
+      --panel2:rgba(255,255,255,.06);
+      --line:rgba(130,170,255,.25);
+      --text:#e9f0ff;
+      --muted:#9db0d8;
+      --accent:#7df9ff;
+      --accent2:#b07cff;
+      --danger:#ff6b8b;
+      --ok:#87ffb1;
+      --shadow:0 20px 70px rgba(0,0,0,.4);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      overflow:hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(125,249,255,.14), transparent 25%),
+        radial-gradient(circle at 80% 10%, rgba(176,124,255,.16), transparent 22%),
+        radial-gradient(circle at 50% 80%, rgba(255,107,139,.10), transparent 28%),
+        linear-gradient(180deg, #050714 0%, #07101f 55%, #03040a 100%);
+    }
+
+    .stars, .stars::before, .stars::after{
+      position:fixed;
+      inset:0;
+      content:"";
+      background-repeat:repeat;
+      pointer-events:none;
+    }
+    .stars{
+      background-image:
+        radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,.8) 50%, transparent 51%),
+        radial-gradient(1px 1px at 140px 80px, rgba(125,249,255,.8) 50%, transparent 51%),
+        radial-gradient(1px 1px at 240px 120px, rgba(255,255,255,.7) 50%, transparent 51%),
+        radial-gradient(1px 1px at 320px 40px, rgba(176,124,255,.8) 50%, transparent 51%);
+      background-size: 380px 180px;
+      opacity:.5;
+      animation: drift 120s linear infinite;
+    }
+    .stars::before{
+      background-image:
+        radial-gradient(1px 1px at 60px 60px, rgba(255,255,255,.7) 50%, transparent 51%),
+        radial-gradient(1px 1px at 180px 140px, rgba(125,249,255,.7) 50%, transparent 51%),
+        radial-gradient(1px 1px at 280px 30px, rgba(255,255,255,.6) 50%, transparent 51%);
+      background-size: 340px 160px;
+      opacity:.35;
+      animation: drift 80s linear infinite reverse;
+    }
+    .stars::after{
+      background-image:
+        radial-gradient(2px 2px at 90px 90px, rgba(255,255,255,.8) 50%, transparent 51%),
+        radial-gradient(1px 1px at 260px 70px, rgba(125,249,255,.8) 50%, transparent 51%);
+      background-size: 420px 220px;
+      opacity:.25;
+      animation: drift 50s linear infinite;
+    }
+    @keyframes drift{
+      from{transform:translate3d(0,0,0)}
+      to{transform:translate3d(-420px,220px,0)}
+    }
+
+    .wrap{
+      position:relative;
+      z-index:2;
+      width:min(1180px, 94vw);
+      margin:0 auto;
+      padding:24px 0 30px;
+      min-height:100vh;
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    header{
+      grid-column:1 / -1;
+      display:flex;
+      justify-content:space-between;
+      align-items:end;
+      gap:16px;
+      padding:6px 4px 0;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(28px, 4vw, 54px);
+      letter-spacing:.04em;
+      text-shadow:0 0 24px rgba(125,249,255,.18);
+    }
+    .brand p{
+      margin:8px 0 0;
+      color:var(--muted);
+      max-width:62ch;
+      line-height:1.6;
+    }
+
+    .badge{
+      padding:10px 14px;
+      border:1px solid rgba(125,249,255,.25);
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+      color:var(--accent);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      white-space:nowrap;
+    }
+
+    .panel{
+      background:linear-gradient(180deg, rgba(16,23,44,.82), rgba(7,10,20,.78));
+      border:1px solid rgba(130,170,255,.16);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(14px);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(120deg, transparent 0 30%, rgba(255,255,255,.05) 38%, transparent 48%),
+        linear-gradient(180deg, rgba(125,249,255,.06), transparent 20%, transparent 80%, rgba(176,124,255,.06));
+      pointer-events:none;
+    }
+
+    .controls{
+      padding:20px;
+      display:grid;
+      gap:14px;
+    }
+
+    .section-title{
+      margin:0 0 2px;
+      font-size:18px;
+      letter-spacing:.04em;
+      color:#dce7ff;
+    }
+
+    label{
+      display:block;
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    input, select, button, textarea{
+      font:inherit;
+    }
+
+    input[type="datetime-local"],
+    input[type="text"],
+    select{
+      width:100%;
+      border-radius:14px;
+      border:1px solid rgba(130,170,255,.20);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:13px 14px;
+      outline:none;
+    }
+
+    input[type="range"]{
+      width:100%;
+      accent-color:var(--accent);
+    }
+
+    .presets{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .chip{
+      border:1px solid rgba(130,170,255,.20);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:999px;
+      cursor:pointer;
+      transition:.18s transform ease, .18s background ease, .18s border ease;
+    }
+    .chip:hover{transform:translateY(-1px); background:rgba(125,249,255,.10); border-color:rgba(125,249,255,.35);}
+    .chip.active{background:rgba(125,249,255,.15); border-color:rgba(125,249,255,.45); color:#dfffff;}
+
+    .btnrow{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      border:none;
+      border-radius:16px;
+      padding:14px 16px;
+      cursor:pointer;
+      color:#07101f;
+      font-weight:700;
+      letter-spacing:.03em;
+      transition:transform .16s ease, filter .16s ease;
+      box-shadow:0 12px 34px rgba(125,249,255,.18);
+    }
+    .btn:hover{transform:translateY(-1px); filter:brightness(1.03);}
+    .btn.primary{background:linear-gradient(135deg, var(--accent), #b6fff6);}
+    .btn.secondary{background:linear-gradient(135deg, #d3b7ff, #a47aff);}
+    .btn.danger{background:linear-gradient(135deg, #ff8ea8, #ff6b8b);}
+    .btn.ghost{
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border:1px solid rgba(130,170,255,.18);
+      box-shadow:none;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+    }
+    .stat{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(130,170,255,.14);
+      border-radius:18px;
+      padding:14px;
+      min-height:88px;
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .stat .v{
+      font-size:clamp(18px, 2vw, 28px);
+      font-weight:800;
+      line-height:1.15;
+    }
+    .stat .s{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .visual{
+      padding:20px;
+      display:grid;
+      gap:14px;
+      position:relative;
+    }
+
+    .clock{
+      display:grid;
+      place-items:center;
+      padding:12px 0 6px;
+    }
+
+    .ring{
+      width:min(100%, 430px);
+      aspect-ratio:1/1;
+      border-radius:50%;
+      position:relative;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at center, rgba(125,249,255,.12), transparent 36%),
+        radial-gradient(circle at center, rgba(176,124,255,.08), transparent 52%),
+        conic-gradient(from 0deg, rgba(125,249,255,.05), rgba(125,249,255,.32), rgba(176,124,255,.5), rgba(255,107,139,.28), rgba(125,249,255,.05));
+      box-shadow:
+        0 0 0 1px rgba(130,170,255,.16) inset,
+        0 0 60px rgba(125,249,255,.10),
+        0 0 120px rgba(176,124,255,.08);
+      overflow:hidden;
+    }
+    .ring::before{
+      content:"";
+      position:absolute;
+      inset:16px;
+      border-radius:50%;
+      background:
+        radial-gradient(circle at center, rgba(6,10,22,.95), rgba(6,10,22,.75)),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.01));
+      border:1px solid rgba(130,170,255,.16);
+    }
+    .ring::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(circle at 50% 50%, transparent 0 57%, rgba(125,249,255,.14) 58%, transparent 60%),
+        linear-gradient(transparent 49.3%, rgba(255,255,255,.10) 49.3%, rgba(255,255,255,.10) 50.7%, transparent 50.7%),
+        linear-gradient(90deg, transparent 49.3%, rgba(255,255,255,.10) 49.3%, rgba(255,255,255,.10) 50.7%, transparent 50.7%);
+      opacity:.8;
+      pointer-events:none;
+    }
+
+    .core{
+      position:relative;
+      z-index:2;
+      width:min(72%, 300px);
+      text-align:center;
+      padding:18px;
+    }
+    .core .big{
+      font-size:clamp(28px, 4vw, 48px);
+      font-weight:900;
+      letter-spacing:.06em;
+      text-shadow:0 0 18px rgba(125,249,255,.18);
+    }
+    .core .small{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .bars{
+      display:grid;
+      gap:10px;
+    }
+    .bar{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(130,170,255,.15);
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:inherit;
+      background:linear-gradient(90deg, var(--accent), var(--accent2), var(--danger));
+      box-shadow:0 0 18px rgba(125,249,255,.25);
+      transition:width .22s ease;
+    }
+    .bar-label{
+      display:flex;
+      justify-content:space-between;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:6px;
+    }
+
+    .log{
+      margin:0;
+      min-height:180px;
+      max-height:280px;
+      overflow:auto;
+      padding:16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(130,170,255,.12);
+      color:#dbe7ff;
+      line-height:1.65;
+      white-space:pre-wrap;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    .flash{
+      position:fixed;
+      inset:0;
+      background:radial-gradient(circle at center, rgba(125,249,255,.28), rgba(176,124,255,.14), rgba(0,0,0,0) 55%);
+      opacity:0;
+      pointer-events:none;
+      z-index:20;
+    }
+    .flash.run{
+      animation: pulse 1.5s ease;
+    }
+    @keyframes pulse{
+      0%{opacity:0}
+      15%{opacity:1}
+      100%{opacity:0}
+    }
+
+    .vibrate{
+      animation: shake .5s linear 0s 2;
+    }
+    @keyframes shake{
+      0%{transform:translate(0,0) rotate(0)}
+      20%{transform:translate(-2px,1px) rotate(-.3deg)}
+      40%{transform:translate(2px,-1px) rotate(.3deg)}
+      60%{transform:translate(-1px,2px) rotate(-.2deg)}
+      80%{transform:translate(1px,-2px) rotate(.2deg)}
+      100%{transform:translate(0,0) rotate(0)}
+    }
+
+    @media (max-width: 920px){
+      body{overflow:auto}
+      .wrap{
+        grid-template-columns:1fr;
+        padding-bottom:24px;
+      }
+      .stats{
+        grid-template-columns:1fr;
+      }
+      header{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="stars"></div>
+  <div class="flash" id="flash"></div>
+
+  <div class="wrap" id="app">
+    <header>
+      <div class="brand">
+        <h1>Time Shift Simulator</h1>
+        <p>過去にも未来にも飛べる気がする、という脳内演出をブラウザで再現します。実際に移動はできません。人類の技術と想像力の落差、だいたいそんなものです。</p>
+      </div>
+      <div class="badge" id="status">状態: 待機中</div>
+    </header>
+
+    <section class="panel controls">
+      <div>
+        <h2 class="section-title">目的地を設定</h2>
+        <label for="target">飛びたい日時</label>
+        <input id="target" type="datetime-local" />
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="mode">モード</label>
+          <select id="mode">
+            <option value="auto">自動判定</option>
+            <option value="past">過去へ</option>
+            <option value="future">未来へ</option>
+            <option value="present">現在固定</option>
+          </select>
+        </div>
+        <div>
+          <label for="power">シフト強度 <span id="powerLabel">72</span>%</label>
+          <input id="power" type="range" min="0" max="100" value="72" />
+        </div>
+      </div>
+
+      <div>
+        <label>時代プリセット</label>
+        <div class="presets">
+          <button class="chip" data-year="1969">1969</button>
+          <button class="chip" data-year="1985">1985</button>
+          <button class="chip" data-year="2001">2001</button>
+          <button class="chip" data-year="2026">2026</button>
+          <button class="chip" data-year="2050">2050</button>
+          <button class="chip" data-year="2100">2100</button>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn primary" id="jump">タイムジャンプ開始</button>
+        <button class="btn secondary" id="random">ランダム時空へ</button>
+        <button class="btn ghost" id="now">現在時刻に戻す</button>
+        <button class="btn danger" id="reset">演出リセット</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="k">推定移動先</div>
+          <div class="v" id="destinationYear">2026</div>
+          <div class="s" id="destinationMeta">現在位置を解析中</div>
+        </div>
+        <div class="stat">
+          <div class="k">時間ずれ</div>
+          <div class="v" id="offset">0 年</div>
+          <div class="s" id="offsetMeta">安定しています</div>
+        </div>
+        <div class="stat">
+          <div class="k">時空安定度</div>
+          <div class="v" id="stability">100%</div>
+          <div class="s" id="stabilityMeta">かなり無茶です</div>
+        </div>
+      </div>
+
+      <div>
+        <label>ワープ進行</label>
+        <div class="bar"><i id="progressBar"></i></div>
+        <div class="bar-label">
+          <span id="progressText">待機中</span>
+          <span id="chrononText">クロノン 0 / 100</span>
+        </div>
+      </div>
+
+      <div>
+        <label>ログ</label>
+        <pre class="log" id="log"></pre>
+      </div>
+
+      <div class="footer-note">
+        注意: これは演出ツールです。実際の時空移動はできません。できたら人類の通勤事情はもう少しマシだったはずです。
+      </div>
+    </section>
+
+    <section class="panel visual">
+      <div class="clock">
+        <div class="ring" id="ring">
+          <div class="core">
+            <div class="big" id="bigReadout">READY</div>
+            <div class="small" id="smallReadout">目的地を選んで、時空のふりをさせる</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="section-title">時代シーン</h2>
+        <div class="stat" style="min-height:auto;">
+          <div class="v" id="eraTitle" style="font-size:22px;">静止</div>
+          <div class="s" id="eraDesc" style="margin-top:10px;">まだワープしていません。</div>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="section-title">記録断片</h2>
+        <div class="stat" style="min-height:auto;">
+          <div class="s" id="memoryLine" style="font-size:15px; line-height:1.8; color:#dbe7ff;">
+            目的地の日時をセットすると、年代に応じた記録が表示されます。
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const target = document.getElementById('target');
+    const mode = document.getElementById('mode');
+    const power = document.getElementById('power');
+    const powerLabel = document.getElementById('powerLabel');
+    const status = document.getElementById('status');
+    const log = document.getElementById('log');
+    const flash = document.getElementById('flash');
+    const app = document.getElementById('app');
+    const ring = document.getElementById('ring');
+
+    const destinationYear = document.getElementById('destinationYear');
+    const destinationMeta = document.getElementById('destinationMeta');
+    const offset = document.getElementById('offset');
+    const offsetMeta = document.getElementById('offsetMeta');
+    const stability = document.getElementById('stability');
+    const stabilityMeta = document.getElementById('stabilityMeta');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const chrononText = document.getElementById('chrononText');
+    const bigReadout = document.getElementById('bigReadout');
+    const smallReadout = document.getElementById('smallReadout');
+    const eraTitle = document.getElementById('eraTitle');
+    const eraDesc = document.getElementById('eraDesc');
+    const memoryLine = document.getElementById('memoryLine');
+
+    const presets = [...document.querySelectorAll('.chip')];
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+
+    function localDTString(d){
+      const x = new Date(d);
+      const yyyy = x.getFullYear();
+      const mm = pad(x.getMonth()+1);
+      const dd = pad(x.getDate());
+      const hh = pad(x.getHours());
+      const mi = pad(x.getMinutes());
+      return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+    target.value = localDTString(now);
+
+    function logLine(text){
+      const time = new Date();
+      const stamp = `${pad(time.getHours())}:${pad(time.getMinutes())}:${pad(time.getSeconds())}`;
+      log.textContent = `[${stamp}] ${text}\n` + log.textContent;
+    }
+
+    function yearInfo(year){
+      const y = Number(year);
+      if (y < 1900) return {
+        title: `西暦${y}年`,
+        desc: '蒸気、手紙、そして意味深な宣言がやたら多い時代です。',
+        memory: '記録断片: まだ紙の記録が強かった頃の空気。音は少なく、視線は多い。'
+      };
+      if (y < 1950) return {
+        title: `西暦${y}年`,
+        desc: '機械化が進み、世界が忙しくなり始めた頃のざわつき。',
+        memory: '記録断片: ラジオの雑音、金属の匂い、未来を信じる少し危うい熱。'
+      };
+      if (y < 1980) return {
+        title: `西暦${y}年`,
+        desc: 'アナログの熱気。映像も音楽も、少しだけ粗いのが逆に強い。',
+        memory: '記録断片: 盤面の傷、フィルムの揺れ、手作業の痕跡がまだ残っている。'
+      };
+      if (y < 2000) return {
+        title: `西暦${y}年`,
+        desc: 'ポップで雑多で、テクノロジーが急に明るくなっていく時代。',
+        memory: '記録断片: ネオン、ゲーム機、テープの巻き戻し音。'
+      };
+      if (y < 2030) return {
+        title: `西暦${y}年`,
+        desc: '今に近い時代。便利だけど、未来感はまだ半分くらいです。',
+        memory: '記録断片: スマホの通知、クラウド、そして無限に増えるタブ。'
+      };
+      if (y < 2075) return {
+        title: `西暦${y}年`,
+        desc: '未来っぽいけれど、まだ人間がなんとか運営している時代。',
+        memory: '記録断片: 自動化された都市、静かな移動、少しだけ遅い空。'
+      };
+      return {
+        title: `西暦${y}年`,
+        desc: 'かなり先の未来。便利すぎて逆に説明が必要そうです。',
+        memory: '記録断片: 物質より情報のほうが重く感じる、不思議な時代の気配。'
+      };
+    }
+
+    function updateDerived(){
+      const d = new Date(target.value);
+      const year = d.getFullYear();
+      const current = new Date();
+      const diffYears = year - current.getFullYear();
+      const absYears = Math.abs(diffYears);
+      const p = Number(power.value);
+
+      powerLabel.textContent = p;
+
+      destinationYear.textContent = year;
+      destinationMeta.textContent = diffYears === 0 ? '現在時刻に同期' : diffYears > 0 ? '未来座標を検出' : '過去座標を検出';
+      offset.textContent = `${diffYears >= 0 ? '+' : ''}${diffYears} 年`;
+      offsetMeta.textContent = diffYears === 0 ? '完全同期中' : absYears > 100 ? '遠すぎて少し危険' : absYears > 20 ? 'かなりズレています' : '比較的安全圏';
+      const stabilityValue = Math.max(0, Math.min(100, Math.round(100 - absYears * 0.7 + p * 0.2)));
+      stability.textContent = `${stabilityValue}%`;
+      stabilityMeta.textContent = stabilityValue > 75 ? '安定' : stabilityValue > 45 ? 'やや不安定' : 'かなり無茶です';
+
+      const info = yearInfo(year);
+      eraTitle.textContent = info.title;
+      eraDesc.textContent = info.desc;
+      memoryLine.textContent = info.memory;
+
+      const display = `${year}`;
+      bigReadout.textContent = display;
+      smallReadout.textContent = diffYears === 0 ? '現在時刻と位相一致' : `${Math.abs(diffYears)} 年 ${diffYears >= 0 ? '先' : '前'}へ座標補正`;
+
+      const progress = Math.max(0, Math.min(100, Math.round(Math.abs(diffYears) * 1.2 + p * 0.35)));
+      progressBar.style.width = `${Math.min(progress, 100)}%`;
+      progressText.textContent = diffYears === 0 ? '待機中' : diffYears > 0 ? '未来へ加速中' : '過去へ減速中';
+      chrononText.textContent = `クロノン ${Math.min(progress,100)} / 100`;
+    }
+
+    function setPresetYear(year){
+      const d = new Date(target.value);
+      d.setFullYear(Number(year));
+      target.value = localDTString(d);
+      presets.forEach(btn => btn.classList.toggle('active', btn.dataset.year === String(year)));
+      updateDerived();
+      logLine(`プリセットを ${year} 年に設定。`);
+    }
+
+    function randomJump(){
+      const years = [];
+      for(let y = 1880; y <= 2160; y += 1) years.push(y);
+      const y = years[Math.floor(Math.random() * years.length)];
+      const m = Math.floor(Math.random() * 12);
+      const day = Math.floor(Math.random() * 28) + 1;
+      const hh = Math.floor(Math.random() * 24);
+      const mi = Math.floor(Math.random() * 60);
+      const d = new Date();
+      d.setFullYear(y, m, day);
+      d.setHours(hh, mi, 0, 0);
+      target.value = localDTString(d);
+      presets.forEach(btn => btn.classList.remove('active'));
+      updateDerived();
+      logLine(`ランダム座標を生成: ${y}年${m+1}月${day}日 ${pad(hh)}:${pad(mi)}`);
+    }
+
+    function currentMode(){
+      const selected = mode.value;
+      if (selected !== 'auto') return selected;
+      const y = new Date(target.value).getFullYear();
+      const nowYear = new Date().getFullYear();
+      if (y < nowYear) return 'past';
+      if (y > nowYear) return 'future';
+      return 'present';
+    }
+
+    function runJump(){
+      const d = new Date(target.value);
+      const y = d.getFullYear();
+      const info = yearInfo(y);
+      const p = Number(power.value);
+      const m = currentMode();
+
+      status.textContent = '状態: ワープ準備中';
+      logLine(`エンジン始動。モード=${m} / 強度=${p}% / 目的地=${y}年`);
+      ring.classList.add('vibrate');
+      flash.classList.remove('run');
+      void flash.offsetWidth;
+      flash.classList.add('run');
+
+      let step = 0;
+      const max = 100;
+      const timer = setInterval(() => {
+        step += Math.max(2, Math.round(4 + p / 18));
+        const clamped = Math.min(step, max);
+        progressBar.style.width = `${clamped}%`;
+        progressText.textContent = clamped < 35 ? '座標ロック中' : clamped < 70 ? '位相ずれ修正中' : 'ジャンプ直前';
+        chrononText.textContent = `クロノン ${clamped} / 100`;
+        bigReadout.textContent = clamped < 100 ? `${y}` : 'ARRIVED';
+        smallReadout.textContent = clamped < 100 ? `${m === 'future' ? '前進' : m === 'past' ? '後退' : '同期'}中…` : '位相固定完了';
+
+        if (clamped >= 100){
+          clearInterval(timer);
+          const modeWord = m === 'future' ? '未来' : m === 'past' ? '過去' : '現在';
+          status.textContent = `状態: ${modeWord}へ到着`;
+          eraTitle.textContent = `${y}年 ${modeWord}接続`;
+          eraDesc.textContent = info.desc;
+          memoryLine.textContent = info.memory + '  |  アクセス成功。';
+          stability.textContent = `${Math.max(0, Math.min(100, Math.round(100 - Math.abs(y - new Date().getFullYear()) * 0.7 + p * 0.2)))}%`;
+          logLine(`到着。${y}年の時空断片に接続しました。`);
+          ring.classList.remove('vibrate');
+        }
+      }, 60);
+    }
+
+    function resetView(){
+      target.value = localDTString(new Date());
+      mode.value = 'auto';
+      power.value = 72;
+      powerLabel.textContent = '72';
+      presets.forEach(btn => btn.classList.remove('active'));
+      log.textContent = '';
+      status.textContent = '状態: 待機中';
+      progressBar.style.width = '0%';
+      progressText.textContent = '待機中';
+      chrononText.textContent = 'クロノン 0 / 100';
+      bigReadout.textContent = 'READY';
+      smallReadout.textContent = '目的地を選んで、時空のふりをさせる';
+      eraTitle.textContent = '静止';
+      eraDesc.textContent = 'まだワープしていません。';
+      memoryLine.textContent = '目的地の日時をセットすると、年代に応じた記録が表示されます。';
+      destinationYear.textContent = new Date().getFullYear();
+      destinationMeta.textContent = '現在位置を解析中';
+      offset.textContent = '0 年';
+      offsetMeta.textContent = '安定しています';
+      stability.textContent = '100%';
+      stabilityMeta.textContent = 'かなり無茶です';
+      logLine('初期化完了。時空ポータルは待機状態です。');
+    }
+
+    target.addEventListener('change', updateDerived);
+    mode.addEventListener('change', updateDerived);
+    power.addEventListener('input', updateDerived);
+
+    document.getElementById('jump').addEventListener('click', runJump);
+    document.getElementById('random').addEventListener('click', randomJump);
+    document.getElementById('now').addEventListener('click', () => {
+      target.value = localDTString(new Date());
+      mode.value = 'auto';
+      presets.forEach(btn => btn.classList.remove('active'));
+      updateDerived();
+      logLine('現在時刻へ同期しました。');
+    });
+    document.getElementById('reset').addEventListener('click', resetView);
+
+    presets.forEach(btn => {
+      btn.addEventListener('click', () => setPresetYear(btn.dataset.year));
+    });
+
+    updateDerived();
+    logLine('初期化完了。時空ポータルは待機状態です。');
+  </script>
+</body>
+</html>
